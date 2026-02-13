@@ -19,19 +19,19 @@
 
 ARIA is a full-stack platform that conducts natural voice conversations with real estate leads — qualifying interest, explaining projects, handling objections, and scheduling site visits — all autonomously. It speaks fluent English, Hindi, and Hinglish with a natural Indian voice.
 
-**The voice pipeline:** Browser Mic → Deepgram STT → OpenAI GPT-4 Realtime API → ElevenLabs TTS → Speaker — all streamed over WebSocket with barge-in support.
+**The voice pipeline:** Browser Mic → OpenAI GPT-4o Realtime API (STT + LLM) → ElevenLabs TTS → Speaker — all streamed over WebSocket with barge-in support. Deepgram available as an alternative STT provider.
 
 ---
 
 ## Features
 
 ### Voice AI Engine
-- **Real-time conversation** via OpenAI Realtime API with PCM audio streaming (24kHz, 16-bit)
-- **Speech-to-Text** — Deepgram / OpenAI Whisper with multilingual support
+- **Real-time conversation** via OpenAI GPT-4o Realtime API with PCM audio streaming (24kHz, 16-bit)
+- **Speech-to-Text** — OpenAI Realtime API (built-in STT + LLM in a single round-trip) with Deepgram as alternative provider
 - **Text-to-Speech** — ElevenLabs with configurable speed, stability, similarity, and style
 - **Barge-in support** — user can interrupt the agent mid-sentence
 - **Voice cloning** — clone custom voices from audio samples via ElevenLabs
-- **Server-side VAD** — voice activity detection with configurable thresholds
+- **Server-side VAD** — OpenAI Realtime API voice activity detection with configurable threshold, silence duration, and prefix padding
 - **Knowledge-base grounded** — responses driven by project data, FAQs, and objection rules (no hallucinations)
 
 ### Agent Configuration
@@ -100,9 +100,10 @@ ARIA is a full-stack platform that conducts natural voice conversations with rea
                     ┌──────────────▼────────────────▼──────┐
                     │        External Services             │
                     ├──────────────────────────────────────┤
-                    │  OpenAI     — GPT-4 / Realtime API   │
+                    │  OpenAI     — GPT-4o Realtime API    │
+                    │             (STT + LLM combined)      │
                     │  ElevenLabs — TTS & Voice Cloning     │
-                    │  Deepgram   — Speech-to-Text          │
+                    │  Deepgram   — Alternative STT         │
                     │  Tata Tele  — Smartflo Telephony      │
                     │  Pinecone   — Vector DB (optional)    │
                     └──────────────────────────────────────┘
@@ -114,22 +115,27 @@ ARIA is a full-stack platform that conducts natural voice conversations with rea
 User speaks into browser mic
         │
         ▼ PCM audio stream (WebSocket)
-┌───────────────┐
-│  Deepgram STT │ ──→ Transcript text
-└───────┬───────┘
-        │
-        ▼
-┌───────────────────────┐
-│ OpenAI Realtime API   │ ──→ Agent response text
-│ (GPT-4 + Knowledge)  │      (grounded in KB)
-└───────┬───────────────┘
-        │
-        ▼
-┌────────────────┐
-│ ElevenLabs TTS │ ──→ Audio chunks (streamed sentence-by-sentence)
-└───────┬────────┘
-        │
-        ▼ Audio playback to user (supports barge-in)
+┌─────────────────────────────┐
+│  OpenAI GPT-4o Realtime API │
+│                             │
+│  ┌─────────┐  ┌───────────┐│
+│  │Built-in │→ │ GPT-4o    ││ ──→ Agent response text
+│  │  STT    │  │ LLM + KB  ││      (grounded in knowledge base)
+│  └─────────┘  └───────────┘│
+│  Server-side VAD            │
+│  (threshold: 0.80)          │
+└───────────┬─────────────────┘
+            │
+            ▼
+┌────────────────────────┐
+│    ElevenLabs TTS      │
+│  (eleven_turbo_v2_5)   │ ──→ Audio chunks (streamed sentence-by-sentence)
+│  PCM 24kHz · 16-bit    │
+└───────────┬────────────┘
+            │
+            ▼ Audio playback to user (supports barge-in)
+
+Alternative STT: Deepgram (configurable per agent)
 ```
 
 ---
@@ -276,8 +282,8 @@ Copy `backend/.env.example` to `backend/.env` and configure:
 |------------------------|--------------------------------------|----------|
 | `DATABASE_URL`         | MySQL connection string              | Yes      |
 | `SECRET_KEY`           | JWT signing key (32+ chars)          | Yes      |
-| `OPENAI_API_KEY`       | OpenAI API key (GPT-4 + Realtime)    | Yes      |
-| `DEEPGRAM_API_KEY`     | Deepgram STT API key                 | Yes      |
+| `OPENAI_API_KEY`       | OpenAI API key (GPT-4o Realtime — STT + LLM) | Yes      |
+| `DEEPGRAM_API_KEY`     | Deepgram STT API key (alternative STT)       | Optional |
 | `ELEVENLABS_API_KEY`   | ElevenLabs TTS & voice cloning       | Yes      |
 | `TATA_TELE_API_KEY`    | Tata Smartflo telephony              | For calls |
 | `TATA_TELE_API_SECRET` | Tata Smartflo secret                 | For calls |
@@ -385,7 +391,7 @@ GitHub Actions pipelines run on every push and PR to `main`:
 | **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS, Recharts, Zustand |
 | **Backend**  | FastAPI, SQLAlchemy, Pydantic, WebSocket       |
 | **Database** | MySQL 8.0, Redis 7                             |
-| **AI/ML**    | OpenAI GPT-4 Realtime API, Deepgram STT, ElevenLabs TTS |
+| **AI/ML**    | OpenAI GPT-4o Realtime API (STT + LLM), Deepgram (alt STT), ElevenLabs TTS |
 | **Telephony**| Tata Tele Services Smartflo                    |
 | **CI/CD**    | GitHub Actions                                 |
 

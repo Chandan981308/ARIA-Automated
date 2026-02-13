@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ARIA - Product Requirements Document</title>
+    <style>
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 1in;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #0066cc;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 10px;
+            font-size: 28px;
+        }
+        h2 {
+            color: #0066cc;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-top: 30px;
+            font-size: 20px;
+        }
+        h3 {
+            color: #333;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+        h4 {
+            color: #555;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #0066cc;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .header-info {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .header-info p {
+            margin: 5px 0;
+        }
+        ul, ol {
+            margin-left: 20px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px 4px;
+        }
+        .diagram {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Consolas', monospace;
+            white-space: pre;
+            font-size: 10px;
+            overflow-x: auto;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        @media print {
+            body { padding: 0.5in; }
+            .page-break { page-break-before: always; }
+        }
+    </style>
+</head>
+<body>
+    <h1>ARIA - Enterprise AI Voice Sales Agent (India-Compliant)</h1>
+    <h2 style="border:none; margin-top: 0;">Product Requirements Document (PRD)</h2>
+
+    <div class="header-info">
+        <p><strong>Version:</strong> 1.1</p>
+        <p><strong>Date:</strong> February 2026</p>
+        <p><strong>Owner:</strong> Product Management</p>
+        <p><strong>Status:</strong> Production-Ready</p>
+    </div>
+
+    <hr>
+
+    <h2>1. Problem Statement</h2>
+    <p>Real estate enterprises in India face critical operational and compliance challenges in outbound sales:</p>
+    <ul>
+        <li><strong>Unscalable manual calling:</strong> Sales teams waste 70%+ time on unqualified leads; typical agent handles only 30-40 calls/day</li>
+        <li><strong>Inconsistent qualification:</strong> No standardized discovery process; lead quality varies by sales rep experience</li>
+        <li><strong>Lost intelligence:</strong> Call insights remain in agent notes; CRM data becomes stale within 48 hours</li>
+        <li><strong>Compliance risk:</strong> TRAI DLT violations and DPDP Act 2023 non-compliance carry penalties up to ₹250 crore</li>
+        <li><strong>High CAC:</strong> Cost per qualified lead exceeds ₹5,000 due to inefficient lead handling</li>
+    </ul>
+    <p><strong>Opportunity:</strong> Automate initial qualification calls to scale outreach 10x while maintaining human-like conversation quality and ensuring regulatory compliance.</p>
+
+    <h2>2. Goals & Success Metrics (KPIs)</h2>
+
+    <h3>Primary Goals</h3>
+    <ul>
+        <li>Automate 80%+ of initial outbound qualification calls</li>
+        <li>Maintain >85% conversation completion rate (caller doesn't hang up mid-call)</li>
+        <li>Achieve 100% TRAI and DPDP Act 2023 compliance</li>
+        <li>Reduce cost per qualified lead by 60%</li>
+    </ul>
+
+    <h3>Success Metrics</h3>
+    <table>
+        <tr>
+            <th>Metric</th>
+            <th>Target</th>
+            <th>Measurement</th>
+        </tr>
+        <tr>
+            <td>Calls handled per day</td>
+            <td>500-1,000 per agent instance</td>
+            <td>System logs</td>
+        </tr>
+        <tr>
+            <td>Qualification accuracy</td>
+            <td>>75% match with human validation</td>
+            <td>QA sampling (100 calls/week)</td>
+        </tr>
+        <tr>
+            <td>Hot lead conversion</td>
+            <td>>30% of qualified leads book meetings</td>
+            <td>CRM tracking</td>
+        </tr>
+        <tr>
+            <td>Human-likeness score</td>
+            <td>>4.0/5.0 average</td>
+            <td>Post-call survey (sample)</td>
+        </tr>
+        <tr>
+            <td>Average call duration</td>
+            <td>3-5 minutes</td>
+            <td>Telephony logs</td>
+        </tr>
+        <tr>
+            <td>System uptime</td>
+            <td>>99.5% during calling hours</td>
+            <td>Infrastructure monitoring</td>
+        </tr>
+        <tr>
+            <td>Compliance violations</td>
+            <td>0 DLT/DPDP violations</td>
+            <td>Audit logs</td>
+        </tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <h2>3. Target Users & Use Cases</h2>
+
+    <h3>Primary Users</h3>
+    <ol>
+        <li><strong>Real Estate Sales Managers</strong>
+            <ul>
+                <li>Monitor agent performance in real-time</li>
+                <li>Review call transcripts and qualification decisions</li>
+                <li>Manage lead prioritization and calling campaigns</li>
+            </ul>
+        </li>
+        <li><strong>Sales Representatives</strong>
+            <ul>
+                <li>Receive qualified warm/hot leads for human follow-up</li>
+                <li>Access call history and lead intelligence before outreach</li>
+                <li>Focus on closings instead of cold qualification</li>
+            </ul>
+        </li>
+        <li><strong>Compliance Officers</strong>
+            <ul>
+                <li>Audit consent logs and opt-out handling</li>
+                <li>Verify DLT registration and template compliance</li>
+                <li>Generate regulatory reports</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>Use Cases</h3>
+    <ul>
+        <li><strong>UC1:</strong> Bulk lead qualification for new residential project launch (1,000+ leads)</li>
+        <li><strong>UC2:</strong> Re-engagement of stale leads (3-6 months old) with updated inventory</li>
+        <li><strong>UC3:</strong> Commercial/industrial land qualification for B2B buyers</li>
+        <li><strong>UC4:</strong> Plot inquiries from online campaigns (Facebook/Google Ads)</li>
+    </ul>
+
+    <h2>4. In-Scope Features</h2>
+
+    <h3>Core Capabilities</h3>
+    <ul>
+        <li>Outbound calling via Tata Tele Services (CloudPhone) to Indian numbers</li>
+        <li>Real-time voice conversation with <300ms latency</li>
+        <li>Deterministic sales state machine (Intro → Qualification → Pitch → Objection → CTA)</li>
+        <li>Automatic lead classification (Cold/Warm/Hot) with CRM updates</li>
+        <li>Call recording and transcription storage</li>
+        <li>TRAI DLT compliance enforcement (calling windows, consent, opt-out)</li>
+        <li>DPDP Act 2023 data handling (encryption, retention policies)</li>
+        <li>Web-based admin panel for campaign management and monitoring</li>
+    </ul>
+
+    <h3>Conversation Features</h3>
+    <ul>
+        <li>Indian accent recognition (Hindi-English code-switching support)</li>
+        <li>Natural interruption handling (barge-in detection)</li>
+        <li>Objection handling with predefined response trees</li>
+        <li>Budget and location qualification logic</li>
+        <li>Meeting scheduling and WhatsApp handoff</li>
+        <li>Call-back scheduling for "call me later" scenarios</li>
+    </ul>
+
+    <h3>Memory & Intelligence</h3>
+    <ul>
+        <li>Short-term conversation memory (Redis) for call continuity</li>
+        <li>Long-term lead memory (Pinecone) for multi-touch campaigns</li>
+        <li>Call sentiment analysis and intent detection</li>
+        <li>Historical objection tracking across calls</li>
+    </ul>
+
+    <h2>5. Out-of-Scope Items</h2>
+    <p><strong>Not Included in V1:</strong></p>
+    <ul>
+        <li>Inbound call handling (customer-initiated calls)</li>
+        <li>Multi-language support beyond English and Hindi-English mix</li>
+        <li>Video calling or screen sharing</li>
+        <li>Payment collection or transaction processing</li>
+        <li>Integration with third-party CRMs (Salesforce, HubSpot, Zoho)</li>
+        <li>Voice biometrics or caller authentication</li>
+        <li>Emotional AI beyond basic sentiment detection</li>
+        <li>A/B testing framework for sales scripts (manual script versioning only)</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2>6. User & System Workflows</h2>
+
+    <h3>6.1 Campaign Setup Workflow (Sales Manager)</h3>
+    <ol>
+        <li>Manager logs into ARIA admin panel</li>
+        <li>Navigates to "Campaigns" → "Create New Campaign"</li>
+        <li>Configures campaign:
+            <ul>
+                <li>Name: "Q1 2026 Residential Plots - Mumbai"</li>
+                <li>Property/Plot filter (plotId)</li>
+                <li>Lead stage filter (leadStageId: "New", "Contacted")</li>
+                <li>Location filter (city, state)</li>
+                <li>Platform filter (platformId: "Facebook Ads", "Website")</li>
+                <li>Priority: High/Medium/Low</li>
+            </ul>
+        </li>
+        <li>System queries MySQL leads table with filters</li>
+        <li>System validates:
+            <ul>
+                <li>Phone number format (+91-XXXXXXXXXX)</li>
+                <li>Consent status (interestStatus != 'not interested')</li>
+                <li>Last call attempt (updatedAt > 7 days ago for retry)</li>
+                <li>Calling time window compliance</li>
+            </ul>
+        </li>
+        <li>System displays: "1,247 leads eligible for calling"</li>
+        <li>Manager sets:
+            <ul>
+                <li>Daily call limit: 500 calls/day</li>
+                <li>Calling hours: 10 AM - 8 PM</li>
+                <li>Max attempts per lead: 3</li>
+                <li>Retry interval: 4 hours</li>
+            </ul>
+        </li>
+        <li>Manager activates campaign</li>
+        <li>System queues leads in priority order and begins automated calling</li>
+    </ol>
+
+    <h3>6.2 Automated Call Workflow (System)</h3>
+    <div class="diagram">
+1. LEAD SELECTION:
+   - Dialer queries MySQL: SELECT * FROM leads WHERE
+     leadStageId IN (campaign_stages)
+     AND city IN (campaign_cities)
+     AND interestStatus != 'not interested'
+     AND tracker < 3
+     ORDER BY priority, createdAt ASC
+     LIMIT 1
+
+2. PRE-CALL VALIDATION:
+   - Check phone number validity
+   - Verify consent (no DNC flag)
+   - Check calling time window (9 AM - 9 PM IST)
+   - Load lead context from Pinecone (if previous calls exist)
+   - Load related plot details (JOIN with plots table via plotId)
+
+3. CALL INITIATION:
+   - Tata Tele CloudPhone initiates call to lead.phone
+   - Update MySQL: tracker = tracker + 1, updatedAt = NOW()
+   - Create call_logs entry with call_id, lead_id, status='initiated'
+
+4. ON CALL ANSWERED:
+   a. ARIA introduces itself
+   b. Real-time audio streaming begins:
+      - Customer voice → Deepgram STT
+      - Transcript → Conversation Orchestrator
+      - Orchestrator + GPT-4o → Sales state machine logic
+      - Response → ElevenLabs TTS → Customer
+   c. Redis stores conversation context (last 10 utterances)
+   d. State machine progression:
+      INTRO → QUALIFICATION → NEED_DISCOVERY → PITCH → OBJECTION_HANDLING → CTA
+
+5. ON CALL END:
+   a. Classification engine processes conversation
+   b. Update MySQL leads table
+   c. Store call recording + transcript in S3
+   d. Index conversation in Pinecone
+   e. Trigger follow-up actions
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2>7. MySQL Database Schema</h2>
+
+    <h3>7.1 Core Leads Table</h3>
+    <pre>
+CREATE TABLE leads (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100),
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(20) UNIQUE,
+    platformId INT,                    -- FK: Source platform
+    assignedTo INT,                    -- FK: Sales rep assigned
+    plotId INT,                        -- FK: Property/plot of interest
+    leadStatusId INT,                  -- FK: Status (New, Contacted, etc.)
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    city VARCHAR(100),
+    state VARCHAR(100),
+    leadStageId INT,                   -- FK: Stage in sales funnel
+    tracker INT DEFAULT 0,             -- Call attempt count
+    interestStatus ENUM('interested', 'not interested'),
+    other JSON DEFAULT (JSON_OBJECT()) -- Extended qualification data
+);
+
+CREATE INDEX idx_campaign_query ON leads(leadStageId, city, interestStatus, tracker);
+CREATE INDEX idx_assignment ON leads(assignedTo, leadStatusId);
+CREATE INDEX idx_platform ON leads(platformId, createdAt);
+    </pre>
+
+    <h3>7.2 Extended Tables</h3>
+    <pre>
+-- Call logs for audit trail
+CREATE TABLE call_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    lead_id INT NOT NULL,
+    call_id VARCHAR(100) UNIQUE,
+    campaign_id INT,
+    status ENUM('initiated', 'ringing', 'answered', 'completed', 'failed', 'no_answer', 'busy'),
+    duration INT,
+    recording_url VARCHAR(500),
+    transcript_url VARCHAR(500),
+    classification ENUM('cold', 'warm', 'hot'),
+    sentiment_score DECIMAL(3,2),
+    call_outcome VARCHAR(100),
+    started_at DATETIME,
+    ended_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id)
+);
+
+-- Campaign management
+CREATE TABLE campaigns (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(200) NOT NULL,
+    status ENUM('draft', 'active', 'paused', 'completed') DEFAULT 'draft',
+    filters JSON,
+    daily_call_limit INT DEFAULT 500,
+    calling_hours_start TIME DEFAULT '09:00:00',
+    calling_hours_end TIME DEFAULT '21:00:00',
+    max_attempts_per_lead INT DEFAULT 3,
+    retry_interval_hours INT DEFAULT 4,
+    created_by INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Compliance audit log
+CREATE TABLE compliance_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    event_type ENUM('consent_captured', 'opt_out_requested', 'dlt_check', 'time_window_violation'),
+    lead_id INT,
+    call_id VARCHAR(100),
+    details JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+    </pre>
+
+    <div class="page-break"></div>
+
+    <h2>8. UI/UX Design Specifications</h2>
+
+    <h3>8.1 Design Principles</h3>
+    <ul>
+        <li><strong>Clean & Modern:</strong> Material Design 3 / Tailwind CSS aesthetic</li>
+        <li><strong>Data-Dense but Readable:</strong> Use cards, proper spacing, clear typography</li>
+        <li><strong>Real-Time Updates:</strong> WebSocket connection for live call monitoring</li>
+        <li><strong>Mobile-Responsive:</strong> Full functionality on tablets (iPad Pro), read-only on phones</li>
+        <li><strong>Accessibility:</strong> WCAG 2.1 AA compliance (keyboard navigation, screen reader support)</li>
+        <li><strong>Performance:</strong> <2 second page load, <100ms interaction response</li>
+    </ul>
+
+    <h3>8.2 Navigation Structure</h3>
+    <div class="diagram">
+┌─────────────────────────────────────────────────────────────┐
+│  ARIA Logo    [Dashboard] [Campaigns] [Leads] [Calls]       │
+│               [Analytics] [Compliance] [Settings]    👤 Admin│
+└─────────────────────────────────────────────────────────────┘
+    </div>
+
+    <h3>8.3 Dashboard Page</h3>
+    <p><strong>Features:</strong></p>
+    <ul>
+        <li>Real-time metrics: Live Calls, Completed Today, Hot Leads, Answer Rate, Avg Duration, Qualification Rate</li>
+        <li>Live call cards with transcript preview and "Transfer to Human" button</li>
+        <li>Performance trend chart (Line chart: Calls vs Qualifications)</li>
+        <li>Hot leads queue requiring follow-up</li>
+    </ul>
+
+    <h3>8.4 Campaigns Page</h3>
+    <p><strong>Features:</strong></p>
+    <ul>
+        <li>Campaign cards with progress bar, filters, and daily stats</li>
+        <li>Create campaign modal with lead filter builder</li>
+        <li>Actions: Start, Pause, Edit, View Analytics, Export</li>
+    </ul>
+
+    <h3>8.5 Leads Page</h3>
+    <p><strong>Features:</strong></p>
+    <ul>
+        <li>Data table with sorting, filtering, pagination</li>
+        <li>Bulk actions: Assign, Export, Add to Campaign</li>
+        <li>Lead detail modal with contact history, AI insights, call timeline</li>
+    </ul>
+
+    <h3>8.6 Call History Page</h3>
+    <p><strong>Features:</strong></p>
+    <ul>
+        <li>Call list with filters by date, campaign, classification, outcome</li>
+        <li>Call playback modal with synchronized transcript</li>
+        <li>AI analysis summary and key moments highlighting</li>
+    </ul>
+
+    <h3>8.7 Analytics Page</h3>
+    <p><strong>Features:</strong></p>
+    <ul>
+        <li>Key metrics with trend indicators</li>
+        <li>Call volume trend (Area chart)</li>
+        <li>Classification breakdown (Donut chart)</li>
+        <li>Top objections (Bar chart)</li>
+        <li>Best calling times (Heatmap)</li>
+    </ul>
+
+    <h3>8.8 Compliance Dashboard</h3>
+    <p><strong>Features:</strong></p>
+    <ul>
+        <li>Overall compliance status indicator</li>
+        <li>TRAI compliance card: DLT status, violations, opt-outs</li>
+        <li>DPDP Act compliance card: Encryption, consent, retention, erasure</li>
+        <li>Pending action items with due dates</li>
+        <li>Recent compliance events log</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2>9. Technical Requirements</h2>
+
+    <h3>9.1 Latency Requirements</h3>
+    <table>
+        <tr>
+            <th>Component</th>
+            <th>Requirement</th>
+            <th>Rationale</th>
+        </tr>
+        <tr>
+            <td>STT Processing</td>
+            <td><300ms (Deepgram)</td>
+            <td>Natural conversation flow</td>
+        </tr>
+        <tr>
+            <td>LLM Response Generation</td>
+            <td><800ms (GPT-4o)</td>
+            <td>Prevents awkward pauses</td>
+        </tr>
+        <tr>
+            <td>TTS Streaming</td>
+            <td><200ms first byte (ElevenLabs)</td>
+            <td>Immediate audio playback</td>
+        </tr>
+        <tr>
+            <td>End-to-End Turn Latency</td>
+            <td><1.5 seconds total</td>
+            <td>Human-like responsiveness</td>
+        </tr>
+        <tr>
+            <td>CRM Write Operations</td>
+            <td><5 seconds post-call</td>
+            <td>Real-time lead handoff</td>
+        </tr>
+        <tr>
+            <td>MySQL Lead Query</td>
+            <td><500ms for campaign selection</td>
+            <td>Efficient queueing</td>
+        </tr>
+        <tr>
+            <td>Admin Panel Page Load</td>
+            <td><2 seconds</td>
+            <td>Professional UX</td>
+        </tr>
+    </table>
+
+    <h3>9.2 Reliability Requirements</h3>
+    <table>
+        <tr>
+            <th>Requirement</th>
+            <th>Target</th>
+            <th>Monitoring</th>
+        </tr>
+        <tr>
+            <td>System Uptime</td>
+            <td>99.5% during calling hours (9 AM - 9 PM IST)</td>
+            <td>Pingdom, Datadog</td>
+        </tr>
+        <tr>
+            <td>Call Completion Rate</td>
+            <td>>95% for answered calls</td>
+            <td>Telephony logs</td>
+        </tr>
+        <tr>
+            <td>Component Failover</td>
+            <td><30 seconds for non-call-critical services</td>
+            <td>Health checks</td>
+        </tr>
+        <tr>
+            <td>Data Persistence</td>
+            <td>100% call recordings + transcripts saved</td>
+            <td>Backup verification</td>
+        </tr>
+        <tr>
+            <td>MySQL Availability</td>
+            <td>99.99% (master-replica setup)</td>
+            <td>Database monitoring</td>
+        </tr>
+    </table>
+
+    <h3>9.3 Scalability</h3>
+    <table>
+        <tr>
+            <th>Dimension</th>
+            <th>Capacity</th>
+            <th>Scaling Strategy</th>
+        </tr>
+        <tr>
+            <td>Concurrent Calls</td>
+            <td>100 simultaneous calls per deployment</td>
+            <td>Horizontal scaling (Kubernetes pods)</td>
+        </tr>
+        <tr>
+            <td>Daily Call Volume</td>
+            <td>10,000 calls/day per instance</td>
+            <td>Multi-region deployment</td>
+        </tr>
+        <tr>
+            <td>Lead Database</td>
+            <td>10M+ leads</td>
+            <td>MySQL sharding by campaign_id</td>
+        </tr>
+        <tr>
+            <td>Call Recording Storage</td>
+            <td>500GB/month (1 year retention)</td>
+            <td>S3-compatible object storage</td>
+        </tr>
+        <tr>
+            <td>Admin Panel Users</td>
+            <td>100 concurrent users</td>
+            <td>CDN caching, Redis session store</td>
+        </tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <h2>10. Compliance Requirements (India-Specific)</h2>
+
+    <h3>10.1 TRAI (Telecom Regulatory Authority of India)</h3>
+    <table>
+        <tr>
+            <th>Requirement</th>
+            <th>Implementation</th>
+            <th>Verification</th>
+        </tr>
+        <tr>
+            <td>DLT Registration</td>
+            <td>All calling numbers registered under company's DLT entity ID</td>
+            <td>Manual verification via Tata Tele dashboard</td>
+        </tr>
+        <tr>
+            <td>Template Approval</td>
+            <td>Conversation templates submitted and approved via DLT portal</td>
+            <td>Store approval IDs in campaigns.filters JSON</td>
+        </tr>
+        <tr>
+            <td>Consent Management</td>
+            <td>Query leads.interestStatus before dialing; skip if 'not interested'</td>
+            <td>Pre-call validation query</td>
+        </tr>
+        <tr>
+            <td>Calling Time Window</td>
+            <td>Block calls outside 9 AM - 9 PM IST</td>
+            <td>System-level enforcement</td>
+        </tr>
+        <tr>
+            <td>Opt-Out Handling</td>
+            <td>Immediate opt-out upon request; update MySQL within 5 seconds</td>
+            <td>Compliance log entry</td>
+        </tr>
+        <tr>
+            <td>Call Recording Consent</td>
+            <td>Inform caller that call is being recorded</td>
+            <td>Included in INTRO state script</td>
+        </tr>
+    </table>
+
+    <h3>10.2 DPDP Act 2023 (Digital Personal Data Protection Act)</h3>
+    <table>
+        <tr>
+            <th>Requirement</th>
+            <th>Implementation</th>
+            <th>Audit Trail</th>
+        </tr>
+        <tr>
+            <td>Purpose Limitation</td>
+            <td>Collect only data necessary for qualification</td>
+            <td>MySQL schema enforces data minimization</td>
+        </tr>
+        <tr>
+            <td>Consent Collection</td>
+            <td>Explicit opt-in required before first call</td>
+            <td>Store in leads.other JSON with timestamp</td>
+        </tr>
+        <tr>
+            <td>Data Retention</td>
+            <td>Call recordings: 1 year; Transcripts: 2 years</td>
+            <td>Automated cleanup cron job</td>
+        </tr>
+        <tr>
+            <td>Right to Erasure</td>
+            <td>"Forget me" request → delete PII within 30 days</td>
+            <td>Erasure workflow with compliance log</td>
+        </tr>
+        <tr>
+            <td>Data Localization</td>
+            <td>All servers in India (Mumbai/Delhi region)</td>
+            <td>AWS ap-south-1 or Azure Central India</td>
+        </tr>
+        <tr>
+            <td>Breach Notification</td>
+            <td>Notify Data Protection Board within 72 hours</td>
+            <td>Incident response playbook</td>
+        </tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <h2>11. External Dependencies & Integrations</h2>
+
+    <h3>11.1 External Services</h3>
+    <table>
+        <tr>
+            <th>Service</th>
+            <th>Purpose</th>
+            <th>SLA Requirement</th>
+            <th>Fallback</th>
+        </tr>
+        <tr>
+            <td>Tata Tele Services (CloudPhone)</td>
+            <td>Outbound calling, PSTN connectivity</td>
+            <td>99.9% uptime</td>
+            <td>Critical dependency</td>
+        </tr>
+        <tr>
+            <td>Deepgram</td>
+            <td>Real-time STT</td>
+            <td>99.5% uptime, <300ms latency</td>
+            <td>Exponential backoff retry</td>
+        </tr>
+        <tr>
+            <td>OpenAI (GPT-4o)</td>
+            <td>Conversational reasoning</td>
+            <td>99.9% uptime, <800ms response</td>
+            <td>Cached templates fallback</td>
+        </tr>
+        <tr>
+            <td>ElevenLabs</td>
+            <td>Human-like TTS</td>
+            <td>99% uptime, <200ms first byte</td>
+            <td>Pre-generated audio clips</td>
+        </tr>
+        <tr>
+            <td>Pinecone</td>
+            <td>Long-term lead memory</td>
+            <td>99.9% uptime</td>
+            <td>Graceful degradation</td>
+        </tr>
+    </table>
+
+    <h3>11.2 API Endpoints</h3>
+    <table>
+        <tr>
+            <th>API</th>
+            <th>Endpoint</th>
+            <th>Authentication</th>
+        </tr>
+        <tr>
+            <td>Tata Tele CloudPhone</td>
+            <td>https://api.cloudphone.tatatele.in/v1/</td>
+            <td>API Key + Secret</td>
+        </tr>
+        <tr>
+            <td>Deepgram Streaming STT</td>
+            <td>wss://api.deepgram.com/v1/listen</td>
+            <td>API Key</td>
+        </tr>
+        <tr>
+            <td>OpenAI</td>
+            <td>https://api.openai.com/v1/chat/completions</td>
+            <td>Bearer Token</td>
+        </tr>
+        <tr>
+            <td>ElevenLabs Streaming TTS</td>
+            <td>wss://api.elevenlabs.io/v1/text-to-speech/stream</td>
+            <td>API Key</td>
+        </tr>
+    </table>
+
+    <h2>12. Risks & Mitigations</h2>
+    <table>
+        <tr>
+            <th>Risk</th>
+            <th>Impact</th>
+            <th>Probability</th>
+            <th>Mitigation</th>
+        </tr>
+        <tr>
+            <td>TRAI Non-Compliance Penalty</td>
+            <td>High (₹250 crore max)</td>
+            <td>Low</td>
+            <td>Pre-call validation; daily compliance audits; log all consent</td>
+        </tr>
+        <tr>
+            <td>Customer Complaints</td>
+            <td>Medium (brand damage)</td>
+            <td>Medium</td>
+            <td>Transparent AI disclosure; immediate opt-out handling</td>
+        </tr>
+        <tr>
+            <td>LLM Hallucination</td>
+            <td>High (legal liability)</td>
+            <td>Medium</td>
+            <td>Strict prompt engineering; fact grounding from database</td>
+        </tr>
+        <tr>
+            <td>STT Accuracy Issues</td>
+            <td>Medium</td>
+            <td>Medium</td>
+            <td>QA sampling; fine-tune model; human review flagging</td>
+        </tr>
+        <tr>
+            <td>Data Breach</td>
+            <td>High (DPDP violation)</td>
+            <td>Low</td>
+            <td>AES-256 encryption; TLS 1.3; quarterly penetration testing</td>
+        </tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <h2>13. System Architecture</h2>
+    <div class="diagram">
+┌──────────────────────────────────────────────────────────────────────┐
+│                         ADMIN PANEL (Web UI)                          │
+│  Dashboard | Campaigns | Leads | Calls | Analytics | Compliance      │
+│  Next.js 14 + React 18 + Tailwind CSS | WebSocket for real-time      │
+└────────────────────────────┬─────────────────────────────────────────┘
+                             │ REST API (HTTPS)
+┌────────────────────────────▼─────────────────────────────────────────┐
+│                     FastAPI Backend (Orchestrator)                    │
+│  • Campaign Manager     • Lead Queue Engine    • Compliance Validator│
+│  • Call Controller      • CRM Writer           • Analytics Engine    │
+│  • State Machine Logic  • Webhook Handlers     • Assignment Engine   │
+└──┬──────┬──────┬──────────┬──────────┬──────────┬──────────┬────────┘
+   │      │      │          │          │          │          │
+   ▼      ▼      ▼          ▼          ▼          ▼          ▼
+┌──────┐┌─────┐┌────────┐┌───────┐┌──────────┐┌──────────┐┌─────────┐
+│MySQL ││Redis││Pinecone││ Tata  ││ Deepgram ││ElevenLabs││ OpenAI  │
+│ CRM  ││Cache││ Vector ││ Tele  ││   STT    ││   TTS    ││GPT-4o   │
+│      ││     ││   DB   ││CloudPh││ Streaming││ Streaming││         │
+└──────┘└─────┘└────────┘└───────┘└──────────┘└──────────┘└─────────┘
+    </div>
+
+    <h2>14. Future Enhancements (Post V1)</h2>
+    <ul>
+        <li>Multi-language support: Marathi, Tamil, Telugu, Kannada</li>
+        <li>Inbound call handling (customer-initiated inquiries)</li>
+        <li>A/B testing framework for automated script optimization</li>
+        <li>Emotional AI for empathy-driven responses</li>
+        <li>WhatsApp integration for brochures and images</li>
+        <li>Calendar integration (Google Calendar/Outlook API)</li>
+        <li>Predictive dialing based on historical answer rates</li>
+        <li>Third-party CRM integrations (Salesforce, HubSpot, Zoho)</li>
+        <li>Mobile app for sales reps</li>
+    </ul>
+
+    <hr>
+    <p style="text-align: center; color: #666; font-size: 12px; margin-top: 40px;">
+        <strong>Document End</strong><br>
+        ARIA - Enterprise AI Voice Sales Agent PRD v1.1<br>
+        © 2026 - Confidential
+    </p>
+</body>
+</html>

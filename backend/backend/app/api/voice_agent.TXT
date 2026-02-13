@@ -1,0 +1,763 @@
+"""
+Realtime Voice AI Sales Agent - WebSocket Endpoint
+Pipeline: Browser Mic -> GPT-4o Realtime API (STT + LLM, text mode) -> ElevenLabs TTS -> Browser Audio
+
+Uses GPT-4o Realtime for:
+- Streaming audio input (speech-to-text via built-in Whisper)
+- Server-side VAD (voice activity detection)
+- LLM text response generation (knowledge-base-grounded)
+
+Uses ElevenLabs for:
+- Text-to-speech with custom female voice (NXsB2Ew7UyH5JDkfI3LF)
+- Streaming MP3 audio (44.1kHz, 96kbps) back to browser
+"""
+
+import json
+import asyncio
+import base64
+import logging
+import re
+from uuid import uuid4
+
+import aiohttp
+from fastapi import WebSocket, WebSocketDisconnect
+
+from ..core.config import settings
+from .knowledge_base import (
+    build_realtime_system_instructions,
+    get_knowledge_base_config,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def safe_print(msg: str):
+    """Print that won't crash on Windows cp1252 with Hindi/Unicode text."""
+    try:
+        print(msg)
+    except UnicodeEncodeError:
+        print(msg.encode("ascii", errors="replace").decode("ascii"))
+
+
+def _split_into_tts_chunks(text: str) -> list[str]:
+    """Split text into short sentence chunks for TTS streaming.
+
+    Rules:
+    - Split on sentence boundaries (. ? ! newlines)
+    - Each chunk should be 1-2 sentences, max ~80 chars
+    - Never send more than 15-20 words in one TTS call
+    - This prevents prosody resets and voice breaks in ElevenLabs
+    """
+    if not text or not text.strip():
+        return []
+
+    # Split on sentence-ending punctuation and newlines
+    # Keep the punctuation attached to the sentence
+    raw_parts = re.split(r'(?<=[.?!])\s+|\n+', text.strip())
+
+    chunks = []
+    current = ""
+
+    for part in raw_parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # If adding this part keeps us under ~80 chars, combine
+        if current and len(current) + len(part) + 1 <= 80:
+            current += " " + part
+        else:
+            if current:
+                chunks.append(current)
+            current = part
+
+    if current:
+        chunks.append(current)
+
+    return chunks if chunks else [text.strip()]
+
+
+class VoiceAgentSession:
+    """Manages a single realtime voice call session using GPT-4o Realtime API."""
+
+    def __init__(self, websocket: WebSocket, language_preference: str = "auto"):
+        self.websocket = websocket
+        self.language_preference = language_preference
+        self.session_id = str(uuid4())
+
+        # OpenAI Realtime API WebSocket
+        self.openai_ws = None          # aiohttp ClientWebSocketResponse
+        self._aiohttp_session = None   # aiohttp ClientSession
+
+        # State
+        self.is_active = True
+        self.is_speaking = False       # True while TTS is streaming to browser
+        self._openai_listener_task = None
+        self._tts_queue: asyncio.Queue = asyncio.Queue()  # TTS text queue
+        self._tts_worker_task = None   # Background TTS worker
+        self._full_response_text = ""  # Full response accumulator
+
+    # ------------------------------------------------------------------
+    # Session Lifecycle
+    # ------------------------------------------------------------------
+
+    async def start(self):
+        """Send welcome message with ElevenLabs TTS, then start TTS worker."""
+        kb = get_knowledge_base_config()
+        welcome_text = kb.get(
+            "welcome_message",
+            "Hello! I am Chitti from RSC Group Dholera.",
+        )
+
+        # Send welcome text to browser
+        await self.send_json({
+            "event": "agent_text",
+            "text": welcome_text,
+            "language": "hinglish",
+            "is_on_topic": True,
+        })
+
+        # Speaking state
+        await self.send_json({"event": "agent_state", "state": "speaking"})
+
+        # Generate and stream TTS for welcome message (direct call for welcome)
+        welcome_speak = (
+            welcome_text.split("\n")[0] if "\n" in welcome_text else welcome_text
+        )
+        await self.generate_and_send_tts(welcome_speak)
+        await self.send_json({"event": "agent_audio_end"})
+        self.is_speaking = False
+
+        # Now listening for user
+        await self.send_json({"event": "agent_state", "state": "listening"})
+
+        # Start the TTS worker for streaming sentence-by-sentence
+        self._tts_worker_task = asyncio.create_task(
+            self._run_tts_worker_loop()
+        )
+
+    # ------------------------------------------------------------------
+    # OpenAI Realtime API Connection
+    # ------------------------------------------------------------------
+
+    async def connect_openai_realtime(self) -> bool:
+        """Open WebSocket to OpenAI Realtime API. Retries up to 3 times."""
+        safe_print(
+            f"[VOICE] Attempting OpenAI Realtime connection... "
+            f"API key present: {bool(settings.OPENAI_API_KEY)}"
+        )
+
+        if not settings.OPENAI_API_KEY:
+            safe_print("[VOICE] ERROR: No OpenAI API key!")
+            await self.send_json({
+                "event": "error",
+                "message": "OpenAI API key not configured. Set OPENAI_API_KEY in .env",
+            })
+            return False
+
+        model = settings.OPENAI_REALTIME_MODEL
+        url = f"wss://api.openai.com/v1/realtime?model={model}"
+
+        headers = {
+            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+            "OpenAI-Beta": "realtime=v1",
+        }
+
+        max_retries = 3
+        last_error = None
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                safe_print(
+                    f"[VOICE] Connecting to OpenAI Realtime "
+                    f"(attempt {attempt}/{max_retries})..."
+                )
+                self._aiohttp_session = aiohttp.ClientSession()
+                self.openai_ws = await asyncio.wait_for(
+                    self._aiohttp_session.ws_connect(url, headers=headers),
+                    timeout=15,
+                )
+
+                # Start listener for Realtime API server events
+                self._openai_listener_task = asyncio.create_task(
+                    self._listen_openai()
+                )
+
+                safe_print(
+                    f"[VOICE] [OK] OpenAI Realtime connected on attempt {attempt}!"
+                )
+                logger.info(f"[{self.session_id}] OpenAI Realtime connected")
+
+                # Configure session (modalities, VAD, system prompt)
+                await self._configure_session()
+
+                return True
+
+            except Exception as e:
+                last_error = e
+                safe_print(
+                    f"[VOICE] [FAIL] Attempt {attempt} failed: "
+                    f"{type(e).__name__}: {e}"
+                )
+                if self._aiohttp_session:
+                    await self._aiohttp_session.close()
+                    self._aiohttp_session = None
+                self.openai_ws = None
+
+                if attempt < max_retries:
+                    wait_time = attempt * 1
+                    safe_print(f"[VOICE] Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+
+        safe_print(
+            f"[VOICE] [FAIL] All {max_retries} attempts failed. "
+            f"Last error: {last_error}"
+        )
+        logger.error(
+            f"[{self.session_id}] OpenAI Realtime connection failed "
+            f"after {max_retries} retries: {last_error}"
+        )
+        await self.send_json({
+            "event": "error",
+            "message": "Voice AI connection failed. Please try again.",
+        })
+        return False
+
+    async def _configure_session(self):
+        """Send session.update to OpenAI Realtime API with KB prompt + VAD config."""
+        kb = get_knowledge_base_config()
+        rt_config = kb.get("realtime_voice_config", {})
+        turn_detection = rt_config.get("turn_detection", {
+            "type": "server_vad",
+            "threshold": 0.65,
+            "silence_duration_ms": 900,
+            "prefix_padding_ms": 200,
+        })
+
+        instructions = build_realtime_system_instructions(
+            self.language_preference
+        )
+
+        session_update = {
+            "type": "session.update",
+            "session": {
+                "modalities": ["text"],
+                "instructions": instructions,
+                "input_audio_format": "pcm16",
+                "input_audio_transcription": {
+                    "model": "whisper-1",
+                },
+                "turn_detection": turn_detection,
+                "temperature": rt_config.get("temperature", 0.7),
+                "max_response_output_tokens": rt_config.get(
+                    "max_response_output_tokens", 300
+                ),
+            },
+        }
+
+        await self._send_to_openai(session_update)
+        safe_print("[VOICE] [OK] session.update sent (text-only mode, server_vad)")
+
+    # ------------------------------------------------------------------
+    # OpenAI Realtime API Listener
+    # ------------------------------------------------------------------
+
+    async def _listen_openai(self):
+        """Listen for events from OpenAI Realtime API."""
+        try:
+            async for msg in self.openai_ws:
+                if not self.is_active:
+                    break
+
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    try:
+                        event = json.loads(msg.data)
+                        await self._handle_openai_event(event)
+                    except json.JSONDecodeError:
+                        pass
+                    except Exception as e:
+                        logger.error(
+                            f"[{self.session_id}] OpenAI event error: {e}"
+                        )
+
+                elif msg.type in (
+                    aiohttp.WSMsgType.CLOSED,
+                    aiohttp.WSMsgType.ERROR,
+                ):
+                    logger.info(
+                        f"[{self.session_id}] OpenAI WebSocket closed/error"
+                    )
+                    break
+
+        except Exception as e:
+            logger.error(f"[{self.session_id}] OpenAI listener error: {e}")
+
+    async def _handle_openai_event(self, event: dict):
+        """Process a single event from the OpenAI Realtime API."""
+        event_type = event.get("type", "")
+
+        # ---- Session Events ----
+        if event_type == "session.created":
+            safe_print(f"[VOICE] OpenAI session created: {event.get('session', {}).get('id', '?')}")
+
+        elif event_type == "session.updated":
+            safe_print("[VOICE] OpenAI session config updated OK")
+
+        # ---- VAD Speech Events ----
+        elif event_type == "input_audio_buffer.speech_started":
+            safe_print("[VOICE] User started speaking")
+            # If agent is currently speaking via TTS, we could interrupt
+            # For now, just update state
+            if not self.is_speaking:
+                await self.send_json({
+                    "event": "agent_state",
+                    "state": "listening",
+                })
+
+        elif event_type == "input_audio_buffer.speech_stopped":
+            safe_print("[VOICE] User stopped speaking -> thinking")
+            await self.send_json({
+                "event": "agent_state",
+                "state": "thinking",
+            })
+
+        elif event_type == "input_audio_buffer.committed":
+            safe_print("[VOICE] Audio buffer committed to conversation")
+
+        # ---- User Transcript (Whisper) ----
+        elif event_type == "conversation.item.input_audio_transcription.completed":
+            transcript = event.get("transcript", "").strip()
+            if transcript:
+                safe_print(f"[VOICE] User said: {transcript}")
+                await self.send_json({
+                    "event": "transcript",
+                    "text": transcript,
+                    "is_final": True,
+                    "speech_final": True,
+                })
+
+        elif event_type == "conversation.item.input_audio_transcription.failed":
+            error = event.get("error", {})
+            safe_print(f"[VOICE] Transcription failed: {error.get('message', '?')}")
+
+        # ---- Response Text Streaming ----
+        elif event_type == "response.text.delta":
+            delta = event.get("delta", "")
+            self._full_response_text += delta
+
+        elif event_type == "response.text.done":
+            # Get full response text
+            full_text = (
+                event.get("text", "") or self._full_response_text
+            ).strip()
+            self._full_response_text = ""
+
+            if full_text:
+                safe_print(f"[VOICE] Agent response: {full_text[:80]}...")
+
+                # Detect language
+                has_hindi = any(
+                    0x0900 < ord(c) < 0x097F for c in full_text
+                )
+                has_english = any(
+                    c.isascii() and c.isalpha() for c in full_text
+                )
+                if has_hindi and has_english:
+                    lang = "hinglish"
+                elif has_hindi:
+                    lang = "hi"
+                else:
+                    lang = "en"
+
+                is_on_topic = not any(
+                    m in full_text
+                    for m in ["outside my area", "bahar hai", "mere area se bahar", "I can only"]
+                )
+
+                # Send agent text to browser for transcript
+                await self.send_json({
+                    "event": "agent_text",
+                    "text": full_text,
+                    "language": lang,
+                    "is_on_topic": is_on_topic,
+                })
+
+                # Single TTS call for entire response (no voice breaks)
+                await self._tts_queue.put(full_text)
+
+            # Signal end-of-text to TTS worker (sentinel)
+            await self._tts_queue.put(None)
+
+        # ---- Response lifecycle ----
+        elif event_type == "response.created":
+            safe_print("[VOICE] OpenAI response generation started")
+
+        elif event_type == "response.done":
+            safe_print("[VOICE] OpenAI response done")
+
+        # ---- Errors ----
+        elif event_type == "error":
+            error_data = event.get("error", {})
+            error_msg = error_data.get("message", "Unknown error")
+            safe_print(f"[VOICE] OpenAI Realtime error: {error_msg}")
+            logger.error(
+                f"[{self.session_id}] OpenAI Realtime error: {error_data}"
+            )
+            await self.send_json({
+                "event": "error",
+                "message": f"AI error: {error_msg}",
+            })
+
+    # ------------------------------------------------------------------
+    # TTS Worker
+    # ------------------------------------------------------------------
+
+    async def _run_tts_worker_loop(self):
+        """
+        Continuously runs TTS for each GPT response.
+        Splits text into short sentence chunks for smooth TTS streaming.
+        None sentinel = end of response.
+        """
+        try:
+            while self.is_active:
+                text = await self._tts_queue.get()
+                if text is None:
+                    # End of a response — signal browser
+                    await self.send_json({"event": "agent_audio_end"})
+                    self.is_speaking = False
+                    await self.send_json({
+                        "event": "agent_state",
+                        "state": "listening",
+                    })
+                    continue  # Wait for next response
+
+                # Human-like pause before responding (400ms)
+                await asyncio.sleep(0.4)
+
+                # Set speaking state
+                await self.send_json({
+                    "event": "agent_state",
+                    "state": "speaking",
+                })
+
+                # Split into short sentence chunks for smooth TTS
+                chunks = _split_into_tts_chunks(text)
+                safe_print(f"[VOICE] TTS split into {len(chunks)} chunks")
+
+                for i, chunk in enumerate(chunks):
+                    if not self.is_active:
+                        break
+                    safe_print(f"[VOICE] TTS chunk {i+1}/{len(chunks)}: {chunk[:60]}...")
+                    await self.generate_and_send_tts(chunk)
+                    # Brief micro-pause between sentences (150ms)
+                    if i < len(chunks) - 1:
+                        await asyncio.sleep(0.15)
+
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"[{self.session_id}] TTS worker error: {e}")
+            self.is_speaking = False
+
+    # ------------------------------------------------------------------
+    # Send Audio to OpenAI Realtime
+    # ------------------------------------------------------------------
+
+    async def send_audio_to_openai(self, audio_data: bytes):
+        """Base64-encode PCM audio and send to OpenAI Realtime API."""
+        if (
+            self.openai_ws
+            and not self.openai_ws.closed
+            and not self.is_speaking
+        ):
+            try:
+                audio_b64 = base64.b64encode(audio_data).decode("ascii")
+                await self._send_to_openai({
+                    "type": "input_audio_buffer.append",
+                    "audio": audio_b64,
+                })
+            except Exception as e:
+                logger.error(
+                    f"[{self.session_id}] Send audio to OpenAI failed: {e}"
+                )
+
+    async def _send_to_openai(self, data: dict):
+        """Send a JSON event to the OpenAI Realtime API WebSocket."""
+        if self.openai_ws and not self.openai_ws.closed:
+            try:
+                await self.openai_ws.send_json(data)
+            except Exception as e:
+                logger.error(
+                    f"[{self.session_id}] OpenAI WS send failed: {e}"
+                )
+
+    # ------------------------------------------------------------------
+    # ElevenLabs TTS — streams MP3 chunks to browser
+    # Called per-sentence by _tts_worker (no longer waits for full text)
+    # ------------------------------------------------------------------
+
+    async def generate_and_send_tts(self, text: str):
+        """Generate TTS audio via ElevenLabs and stream to browser.
+        Called per sentence chunk. Does NOT send agent_audio_end
+        (the TTS worker sends that after all sentences are done).
+
+        OPTIMIZED FOR SMOOTH AUDIO:
+        - Uses higher quality audio format (mp3_44100_96)
+        - Larger chunk size (49152 bytes / 48KB) for smoother streaming
+        - Buffering to prevent audio breaks
+        - Proper error handling
+        """
+        if not settings.ELEVENLABS_API_KEY or not text.strip():
+            return
+
+        self.is_speaking = True
+        kb = get_knowledge_base_config()
+        voice_config = kb.get("voice_config", {})
+        voice_id = voice_config.get("voice_id", "NXsB2Ew7UyH5JDkfI3LF")
+        model_id = voice_config.get("model_id", "eleven_turbo_v2_5")
+
+        try:
+            optimize_latency = voice_config.get(
+                "optimize_streaming_latency", 4
+            )
+
+            async with aiohttp.ClientSession() as session:
+                url = (
+                    f"https://api.elevenlabs.io/v1/text-to-speech/"
+                    f"{voice_id}/stream"
+                    f"?optimize_streaming_latency={optimize_latency}"
+                    f"&output_format=mp3_44100_96"
+                )
+
+                headers = {
+                    "xi-api-key": settings.ELEVENLABS_API_KEY,
+                    "Content-Type": "application/json",
+                    "Accept": "audio/mpeg",
+                }
+
+                payload = {
+                    "text": text,
+                    "model_id": model_id,
+                    "voice_settings": {
+                        "stability": voice_config.get("stability", 0.35),
+                        "similarity_boost": voice_config.get(
+                            "similarity_boost", 0.75
+                        ),
+                        "style": voice_config.get("style", 0.0),
+                        "use_speaker_boost": False,
+                    },
+                }
+
+                async with session.post(
+                    url, headers=headers, json=payload
+                ) as resp:
+                    if resp.status == 200:
+                        async for chunk in resp.content.iter_chunked(49152):
+                            if chunk and self.is_active:
+                                await self.websocket.send_bytes(chunk)
+
+                    else:
+                        error_text = await resp.text()
+                        logger.error(
+                            f"[{self.session_id}] ElevenLabs TTS error: "
+                            f"{resp.status} - {error_text}"
+                        )
+
+        except Exception as e:
+            logger.error(f"[{self.session_id}] TTS generation error: {e}")
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    async def send_json(self, data: dict):
+        """Send JSON message to browser WebSocket."""
+        try:
+            if self.is_active:
+                await self.websocket.send_json(data)
+        except Exception as e:
+            logger.error(f"[{self.session_id}] Send to browser failed: {e}")
+
+    async def cleanup(self):
+        """Clean up resources when call ends."""
+        self.is_active = False
+
+        # Close OpenAI Realtime WebSocket
+        if self.openai_ws and not self.openai_ws.closed:
+            try:
+                await self.openai_ws.close()
+            except Exception:
+                pass
+
+        # Close aiohttp session
+        if self._aiohttp_session:
+            try:
+                await self._aiohttp_session.close()
+            except Exception:
+                pass
+            self._aiohttp_session = None
+
+        # Cancel listener task
+        if self._openai_listener_task:
+            self._openai_listener_task.cancel()
+            try:
+                await self._openai_listener_task
+            except asyncio.CancelledError:
+                pass
+
+        # Cancel TTS worker
+        if self._tts_worker_task:
+            self._tts_worker_task.cancel()
+            try:
+                await self._tts_worker_task
+            except asyncio.CancelledError:
+                pass
+
+        logger.info(f"[{self.session_id}] Voice agent session cleaned up")
+
+
+# ============================================================================
+# WebSocket Endpoint Handler
+# ============================================================================
+
+
+async def voice_agent_websocket_handler(
+    websocket: WebSocket, token: str = None
+):
+    """
+    WebSocket endpoint for Realtime Voice AI Sales Agent.
+
+    Connection: ws://host:8000/ws/voice-agent?token=JWT
+
+    Protocol:
+    - Browser sends binary audio chunks (Linear16 PCM, 16kHz, mono)
+    - Browser sends JSON control messages: {"event": "start"/"stop"}
+    - Server sends JSON events: transcript, agent_text, agent_state, error
+    - Server sends binary audio chunks (MP3) for TTS playback
+    """
+    await websocket.accept()
+
+    session = None
+    safe_print("[VOICE] =======================================")
+    safe_print("[VOICE] WebSocket CONNECTED - Voice Agent (GPT-4o Realtime)")
+    safe_print(f"[VOICE] Token present: {bool(token)}")
+    logger.info("Voice agent WebSocket connected")
+
+    try:
+        # Wait for start event
+        while True:
+            raw = await websocket.receive()
+
+            if "text" in raw:
+                try:
+                    msg = json.loads(raw["text"])
+                    event = msg.get("event", "")
+
+                    if event == "start":
+                        language = msg.get("language", "auto")
+                        safe_print(
+                            f"[VOICE] Received 'start' event, language={language}"
+                        )
+                        session = VoiceAgentSession(websocket, language)
+
+                        # Connect to OpenAI Realtime API
+                        safe_print("[VOICE] Connecting to OpenAI Realtime API...")
+                        connected = await session.connect_openai_realtime()
+                        if not connected:
+                            safe_print(
+                                "[VOICE] [FAIL] OpenAI Realtime connection "
+                                "failed - sending error to client"
+                            )
+                            await websocket.send_json({
+                                "event": "error",
+                                "message": (
+                                    "Could not connect to voice AI service"
+                                ),
+                            })
+                            continue
+
+                        # Send session info
+                        safe_print(
+                            f"[VOICE] [OK] Session started: "
+                            f"{session.session_id}"
+                        )
+                        await websocket.send_json({
+                            "event": "session_started",
+                            "session_id": session.session_id,
+                        })
+
+                        # Send welcome message with TTS
+                        safe_print("[VOICE] Sending welcome message + TTS...")
+                        await session.start()
+                        safe_print(
+                            "[VOICE] Welcome message sent. "
+                            "Entering main loop."
+                        )
+                        break
+
+                    elif event in ("stop", "end_call"):
+                        await websocket.close()
+                        return
+
+                except json.JSONDecodeError:
+                    pass
+
+            elif "bytes" in raw:
+                # Audio received before start - ignore
+                pass
+
+        # Main loop: receive audio and control messages
+        while session and session.is_active:
+            raw = await websocket.receive()
+
+            if "bytes" in raw:
+                # Audio data from browser microphone -> OpenAI Realtime
+                audio_data = raw["bytes"]
+                if audio_data and len(audio_data) > 0:
+                    await session.send_audio_to_openai(audio_data)
+
+            elif "text" in raw:
+                try:
+                    msg = json.loads(raw["text"])
+                    event = msg.get("event", "")
+
+                    if event in ("stop", "end_call"):
+                        session.is_active = False
+                        break
+
+                    elif event == "language":
+                        session.language_preference = msg.get("value", "auto")
+
+                    elif event == "text_message":
+                        # Text fallback: user typed a message
+                        text = msg.get("text", "").strip()
+                        if text:
+                            # Send as a conversation item to OpenAI Realtime
+                            await session._send_to_openai({
+                                "type": "conversation.item.create",
+                                "item": {
+                                    "type": "message",
+                                    "role": "user",
+                                    "content": [
+                                        {
+                                            "type": "input_text",
+                                            "text": text,
+                                        }
+                                    ],
+                                },
+                            })
+                            # Trigger a response
+                            await session._send_to_openai({
+                                "type": "response.create",
+                            })
+
+                except json.JSONDecodeError:
+                    pass
+
+    except WebSocketDisconnect:
+        logger.info("Voice agent WebSocket disconnected")
+    except Exception as e:
+        logger.error(f"Voice agent WebSocket error: {e}")
+    finally:
+        if session:
+            await session.cleanup()

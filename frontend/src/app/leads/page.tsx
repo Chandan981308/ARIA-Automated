@@ -195,7 +195,7 @@ export default function LeadsPage() {
   };
 
   // Get unique cities from leads for filter
-  const cities = [...new Set(leads.map(l => l.city).filter(Boolean))];
+  const cities = Array.from(new Set(leads.map(l => l.city).filter(Boolean)));
 
   // Show loading skeleton
   if (loading && leads.length === 0) {
@@ -505,7 +505,7 @@ export default function LeadsPage() {
 
             {/* Page numbers */}
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
+              let pageNum: number;
               if (totalPages <= 5) {
                 pageNum = i + 1;
               } else if (currentPage <= 3) {

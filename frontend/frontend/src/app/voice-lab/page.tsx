@@ -658,9 +658,9 @@ export default function VoiceLabPage() {
   }, [voices, searchQuery, languageFilter, genderFilter, categoryFilter]);
 
   // Get unique filter values
-  const languages = [...new Set(voices.map((v) => v.language).filter(Boolean))].sort();
-  const genders = [...new Set(voices.map((v) => v.gender).filter(Boolean))].sort();
-  const categories = [...new Set(voices.map((v) => v.category).filter(Boolean))].sort();
+  const languages = Array.from(new Set(voices.map((v) => v.language).filter(Boolean))).sort();
+  const genders = Array.from(new Set(voices.map((v) => v.gender).filter(Boolean))).sort();
+  const categories = Array.from(new Set(voices.map((v) => v.category).filter(Boolean))).sort();
 
   const handleDelete = async (voiceId: string) => {
     setDeleting(true);

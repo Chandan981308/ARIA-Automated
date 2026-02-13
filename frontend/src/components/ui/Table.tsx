@@ -89,12 +89,14 @@ export function TableHead({
 export function TableCell({
   children,
   className,
+  colSpan,
 }: {
   children: React.ReactNode;
   className?: string;
+  colSpan?: number;
 }) {
   return (
-    <td className={cn('px-4 py-4 text-gray-900 dark:text-gray-100', className)}>
+    <td colSpan={colSpan} className={cn('px-4 py-4 text-gray-900 dark:text-gray-100', className)}>
       {children}
     </td>
   );

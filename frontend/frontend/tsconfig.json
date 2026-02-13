@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "target": "es2017",
     "lib": [
       "dom",
       "dom.iterable",
@@ -31,8 +32,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    "C:\\Users\\RSC_CH~1\\AppData\\Local\\Temp\\aria-next-build/types/**/*.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
